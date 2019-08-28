@@ -81,10 +81,6 @@ class Speaker extends Writable {
       debug('setting default %o: %o', 'signed', this.bitDepth !== 8)
       this.signed = this.bitDepth !== 8
     }
-    if (this.device == null) {
-      debug('setting default %o: %o', 'device', null)
-      this.device = null
-    }
 
     const format = Speaker.getFormat(this)
     if (format == null) {
@@ -101,7 +97,7 @@ class Speaker extends Writable {
     // initialize the audio handle
     // TODO: open async?
     this.audio_handle = bufferAlloc(binding.sizeof_audio_output_t)
-    const r = binding.open(this.audio_handle, this.channels, this.sampleRate, format, this.device)
+    const r = binding.open(this.audio_handle, this.channels, this.sampleRate, format)
     if (r !== 0) {
       throw new Error(`open() failed: ${r}`)
     }
@@ -144,10 +140,6 @@ class Speaker extends Writable {
     if (opts.samplesPerFrame != null) {
       debug('setting %o: %o', 'samplesPerFrame', opts.samplesPerFrame)
       this.samplesPerFrame = opts.samplesPerFrame
-    }
-    if (opts.device != null) {
-      debug('setting %o: %o', 'device', opts.device)
-      this.device = opts.device
     }
     if (opts.endianness == null || endianness === opts.endianness) {
       // no "endianness" specified or explicit native endianness
@@ -269,27 +261,29 @@ class Speaker extends Writable {
    * @api public
    */
 
-  close (flush) {
+	close (flush) {
+		var that = this;
     debug('close(%o)', flush)
-    if (this._closed) return debug('already closed...')
+    if (that._closed) return debug('already closed...')
+		setTimeout(function() {
+			if (that.audio_handle) {
+				if (flush !== false) {
+					// TODO: async most likely…
+					debug('invoking flush() native binding')
+					binding.flush(that.audio_handle)
+				}
 
-    if (this.audio_handle) {
-      if (flush !== false) {
-        // TODO: async most likely…
-        debug('invoking flush() native binding')
-        binding.flush(this.audio_handle)
-      }
-
-      // TODO: async maybe?
-      debug('invoking close() native binding')
-      binding.close(this.audio_handle)
-      this.audio_handle = null
-    } else {
-      debug('not invoking flush() or close() bindings since no `audio_handle`')
-    }
-
-    this._closed = true
-    this.emit('close')
+				// TODO: async maybe?
+				debug('invoking close() native binding')
+				binding.close(that.audio_handle)
+				that.audio_handle = null
+			}
+			else {
+				debug('not invoking flush() or close() bindings since no `audio_handle`')
+			}
+			that._closed = true
+			that.emit('close')
+		}, 600);
   }
 }
 
